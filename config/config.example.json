@@ -1,0 +1,27 @@
+{
+    "chat_llm":{
+        "provider": "deepseek",
+        "model": "deepseek-v4-flash",
+        "url": "https://api.deepseek.com",
+        "api_key": ""
+    },
+    "work_llm":{
+        "provider": "",
+        "model": "gpt-3.5-turbo",
+        "url": "https://api.openai.com/v1"
+
+    },
+    "embedding_llm":{
+        "provider": "",
+        "model": "text-embedding-3-small",
+        "url": "https://api.openai.com/v1"
+
+    },
+    "provider": "",
+        "model": "",
+        "url":"",
+        "api_key":"",
+        "character":""
+
+
+}
