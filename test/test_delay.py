@@ -1,9 +1,10 @@
 # Please install OpenAI SDK first: `pip3 install openai`
 import os
 from openai import OpenAI
+from config.config import Config
 
 client = OpenAI(
-    api_key="",
+    api_key=Config().config["chat_llm"]["api_key"],
     base_url="https://api.deepseek.com")
 
 

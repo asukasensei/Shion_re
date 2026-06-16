@@ -1,7 +1,6 @@
 import json
-import re
 import asyncio
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable
 import inspect
 
 from contracts.message import Message
@@ -46,38 +45,52 @@ class MainAgent:
         buffer: list[str] = []
         expression_payload: dict[str, Any] | None = None
         expression_response_retrieved = False
+
         def send_chunk(chunk: str) -> None:
             if chunk and chunk.strip():
                 buffer.append(chunk.strip())
+
         deal_response = DealResponse(send_chunk)
+
+        async def process_buffered_chunks():
+            nonlocal expression_payload
+            nonlocal expression_response_retrieved
+
+            while buffer:
+                chunk = buffer.pop(0)
+                if is_main_entry:
+                    voice_path = await asyncio.to_thread(self.tts.get_voice, chunk)
+                    if expression_payload is None:
+                        raw_expression_response = await expression_response_task
+                        expression_response_retrieved = True
+                        expression_payload = self._parse_expression_payload(
+                            raw_expression_response
+                        )
+                    behaviour_data = BehaviourData(
+                        text=chunk,
+                        voice=voice_path,
+                        avatar=expression_payload,
+                    )
+                    await self._emit_behaviour(behaviour_data)
+
+                yield MessagePost(
+                    channel=channel_id,
+                    content=chunk,
+                )
+
         try:
             chat_response = await chat_response_task
             async for delta_text in self._iter_response_text(chat_response):
                 if not delta_text:
                     continue
                 deal_response.feed(delta_text)
-                while buffer:
-                    chunk = buffer.pop(0)
-                    if is_main_entry:
-                        # 第一次需要时等待 expression task。
-                        voice_path = await asyncio.to_thread(self.tts.get_voice, chunk)
-                        if expression_payload is None:
-                            expression_response_retrieved = True
-                            raw_expression_response = await expression_response_task
-                            expression_payload = self._parse_expression_payload(
-                                raw_expression_response
-                            )                       
-                        behaviour_data = BehaviourData(
-                            text=chunk,
-                            voice=voice_path,
-                            avatar=expression_payload,
-                        )
-                        await self._emit_behaviour(behaviour_data)
 
-                    yield MessagePost(
-                        channel=channel_id,
-                        content=chunk,
-                    )
+                async for post in process_buffered_chunks():
+                    yield post
+
+            deal_response.flush()
+            async for post in process_buffered_chunks():
+                yield post
         finally:
             # 如果 chat 中途异常，而 expression 还没结束，取消它
             if not expression_response_task.done():
@@ -87,8 +100,7 @@ class MainAgent:
                     await expression_response_task
                 except (asyncio.CancelledError, Exception):
                     pass
-    
-    
+
     async def _iter_response_text(self, response: Any):
         """
         兼容几种可能的 LLMResponse 返回形式：

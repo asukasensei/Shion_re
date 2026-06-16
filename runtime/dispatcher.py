@@ -3,8 +3,10 @@ from threading import Event
 
 from agent.main_agent import MainAgent
 from contracts.message import Message
+from event.event_bus import EventBus
 from message.message_bus import MessageBus
 from message.message_post_bus import MessagePost, MessagePostBus
+from contracts.event import Event
 
 
 class Dispatcher:
@@ -12,10 +14,12 @@ class Dispatcher:
         self,
         message_bus: MessageBus,
         message_post_bus: MessagePostBus,
+        event_bus: EventBus,
         main_agent: MainAgent,
     ) -> None:
         self.message_bus = message_bus
         self.message_post_bus = message_post_bus
+        self.event_bus = event_bus
         self.main_agent = main_agent
 
     def dispatch_once(self, block: bool = True, timeout: float = 0.2) -> bool:
@@ -35,8 +39,24 @@ class Dispatcher:
         return True
 
     async def _dispatch_message(self, message: Message) -> None:
-        async for post in self.main_agent.run(message):
-            self._push_post(message, post)
+        response_parts: list[str] = []
+
+        try:
+            async for post in self.main_agent.run(message):
+                self._push_post(message, post)
+                response_parts.append(post.content)
+        finally:
+            event = Event(
+                event_type="session_write",
+                event_id=f"session-write:{message.message_id}",
+                priority="immediate",
+                content={
+                    "time": message.created_at,
+                    "user": message.content,
+                    "agent_response": "".join(response_parts),
+                },
+            )
+            self.event_bus.publish(event)
 
     def run_forever(self, stop_event: Event) -> None:
         while not stop_event.is_set():

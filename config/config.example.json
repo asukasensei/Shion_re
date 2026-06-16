@@ -6,9 +6,10 @@
         "api_key": ""
     },
     "work_llm":{
-        "provider": "",
-        "model": "gpt-3.5-turbo",
-        "url": "https://api.openai.com/v1"
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "url": "https://api.deepseek.com",
+        "api_key": ""
 
     },
     "embedding_llm":{
@@ -17,11 +18,22 @@
         "url": "https://api.openai.com/v1"
 
     },
-    "provider": "",
-        "model": "",
-        "url":"",
+     "tts":{
+        "provider": "qwen",
+        "model": "qwen3-tts-flash-realtime",
+        "url":"wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
         "api_key":"",
         "character":""
-
-
+     },
+    "conversation_store": {
+        "backend": "jsonl",
+        "jsonl_path": "memory/recent/session.jsonl",
+        "redis_url": "redis://localhost:6379/0"
+  },
+    "memory": {
+        "session_compress_chars": 1000,
+        "session_tail_chars": 500,
+        "recent_max_chars": 500,
+        "timezone": "Asia/Shanghai"
+  }
 }

@@ -7,6 +7,11 @@ from event.event_bus import EventBus
 from message.message_bus import MessageBus
 from message.message_post_bus import MessagePostBus
 from runtime.dispatcher import Dispatcher
+from background_worker.backworker import BackgroundWorker
+from memory.diary.diary import DiaryService
+
+import asyncio
+
 
 
 class Runtime:
@@ -18,10 +23,15 @@ class Runtime:
         self.cli_channel = CLIChannel()
         self.channel_bus.register_channel(self.cli_channel)
         self.main_agent = MainAgent()
+        self.diary_service = DiaryService()
         self.dispatcher = Dispatcher(
             message_bus=self.message_bus,
             message_post_bus=self.message_post_bus,
             main_agent=self.main_agent,
+            event_bus=self.event_bus,
+        )
+        self.background_worker = BackgroundWorker(
+            event_bus=self.event_bus
         )
         self.stop_event = Event()
 
@@ -40,14 +50,27 @@ class Runtime:
         )
 
     def run(self) -> None:
+        print("正在加载程序并整理记忆，请稍候……")
+        try:
+            asyncio.run(self.diary_service.process_if_new_day())
+        except Exception as e:
+            print(f"处理日记时发生错误，原始记录已保留: {e}")
+        print("程序已准备就绪，输入 /exit 或 /quit 退出。")
         dispatcher_thread = Thread(
             target=self.dispatcher.run_forever,
             args=(self.stop_event,),
             daemon=True,
         )
         output_thread = Thread(target=self._run_output_loop, daemon=True)
+        background_thread = Thread(
+            target=self.background_worker.run_forever,
+            args=(self.stop_event,),
+            name="background-worker",
+            daemon=False,
+        )
         dispatcher_thread.start()
         output_thread.start()
+        background_thread.start()
 
         try:
             while not self.stop_event.is_set():
@@ -61,6 +84,7 @@ class Runtime:
         finally:
             dispatcher_thread.join(timeout=1)
             output_thread.join(timeout=1)
+            background_thread.join()
 
     def _run_output_loop(self) -> None:
         while not self.stop_event.is_set():

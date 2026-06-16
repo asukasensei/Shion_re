@@ -33,6 +33,7 @@ dist/
 
 # Runtime state and generated media
 /.shion/
+/.Shion/
 /memory/recent/*.json
 /test/voice_outputs/
 *.log
@@ -45,3 +46,10 @@ dist/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Live2D models and related files
+/live2d_model/mao_pro_zh/
+/live2d_model/*.zip
+
+# Large model files
+/route/bge_router_v3/

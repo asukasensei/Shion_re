@@ -25,6 +25,7 @@ class DealResponse:
             return
 
         self.buffer += chunk
+        cache = "" # 用于存储当前已处理但未发送的文本
 
         # 只要缓冲区中出现标点，就尝试切分
         while True:
@@ -34,19 +35,23 @@ class DealResponse:
 
             end_index = match.end()
             segment = self.buffer[:end_index]
+            segment = cache + segment  # 加上之前未发送的部分
 
             # 已存文字大于两个字才发送
             if self._text_len(segment) > 2:
                 self.send_func(segment)
                 self.buffer = self.buffer[end_index:]
+                cache = ""  # 发送后清空缓存
             else:
                 # 如果太短，不发送，继续等待后续内容
+                cache += segment
+                self.buffer = self.buffer[end_index:]
                 break
 
     def flush(self):
         """
         流式输出结束后，发送剩余内容
         """
-        if self._text_len(self.buffer) > 0:
+        if self.buffer.strip():
             self.send_func(self.buffer)
-            self.buffer = ""
+        self.buffer = ""

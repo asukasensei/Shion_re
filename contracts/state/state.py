@@ -46,10 +46,25 @@ class State:
         return asdict(self)
 
     def get_recent_messages(self, n: int = 5) -> None:
-        self.recent_messages = self._load_json(PROJECT_ROOT / "memory" / "recent" / "recent.json")
+        recent = self._load_json(
+            PROJECT_ROOT / ".shion" / "recent.json"
+        )
+        items = recent.get("items", [])
+        self.recent_messages = {
+            "items": [
+                {
+                    "date": item.get("date"),
+                    "text": item.get("text"),
+                }
+                for item in items
+                if isinstance(item, dict)
+            ]
+        }
 
     def get_session(self) -> None:
-        self.session = self._load_json(PROJECT_ROOT / "memory" / "recent" / "session.json")
+        self.session = self._load_json(
+            PROJECT_ROOT / ".shion" / "session" / "sessions.json"
+        )
 
     def get_memory(self) -> None:
         self.memory = {}
