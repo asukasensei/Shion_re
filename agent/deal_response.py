@@ -6,7 +6,7 @@ class DealResponse:
     def __init__(self, send_func: Callable[[str], None]):
         self.buffer = ""
         self.send_func = send_func
-        self.punctuation_pattern = re.compile(r"[。；,，.;]")
+        self.punctuation_pattern = re.compile(r"[。！？；，,.!?;]")
 
 
     def _text_len(self, text: str) -> int:
@@ -25,28 +25,22 @@ class DealResponse:
             return
 
         self.buffer += chunk
-        cache = "" # 用于存储当前已处理但未发送的文本
-
-        # 只要缓冲区中出现标点，就尝试切分
+        search_start = 0
         while True:
-            match = self.punctuation_pattern.search(self.buffer)
+            match = self.punctuation_pattern.search(self.buffer, search_start)
             if not match:
                 break
 
             end_index = match.end()
             segment = self.buffer[:end_index]
-            segment = cache + segment  # 加上之前未发送的部分
-
-            # 已存文字大于两个字才发送
             if self._text_len(segment) > 2:
                 self.send_func(segment)
                 self.buffer = self.buffer[end_index:]
-                cache = ""  # 发送后清空缓存
+                search_start = 0
             else:
-                # 如果太短，不发送，继续等待后续内容
-                cache += segment
-                self.buffer = self.buffer[end_index:]
-                break
+                # 短句暂时留在缓冲区，后续文本会与它一起发送；不能
+                # 从 buffer 中移除，否则诸如“你好。”这样的回复会丢失。
+                search_start = end_index
 
     def flush(self):
         """

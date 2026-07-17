@@ -19,3 +19,6 @@
 
     添加后台任务
     修改/contracts/state/state.py的部分代码内容，具体为在state中读取recent后，对recent消息进行处理，提取recent消息时，只保留date和text的内容
+
+
+    在/behaviour/avatar/web中，用pixi-live2d-display完成avatar.js代码的实现，目前首先实现，加载模型本身，模型位置位于：“live2d_model/晴雨” 并调整参数，自动去除模型水印，具体参数在“live2d_model/晴雨/去水印.exp3.json”   2.让生成窗口尽量贴合本身可见live2d模型的实际大小，electron界面实时读取当前live2d真实可见区域的大小，调整本身convas的大小。网页的convas大小也要尽量贴合模型。整体模型占用区域大小效果要符合使用者视觉感官 3.调整代码阶段先可让界面不透明方便调整4.设置简单的拖动功能，点击可见区域可拖动模型移动5.设置前端接口框架，可持续抓取后端发出的表现指令

@@ -5,9 +5,11 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 from typing import Any
+import asyncio
 
 from contracts.media import Media
 from contracts.message import Message
+from prompting.scene_prompt_dispatcher import ScenePromptDispatcher
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -18,6 +20,7 @@ class State:
     session_id: str
     trace_id: str
     channel_id: str
+    from_who: str = "user"
     content: str | None = None
     media: list[Media] | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -27,25 +30,26 @@ class State:
     thoughts: dict[str, Any] | None = field(default_factory=dict)
 
     @classmethod
-    def from_message(cls, message: Message) -> "State":
+    async def from_message(cls, message: Message) -> "State":
         state = cls(
             user_id=message.user_id,
-            session_id=message.trace_id,
+            session_id=message.session_id or message.trace_id,
             trace_id=message.trace_id,
             channel_id=message.channel_id,
+            from_who=message.from_who,
             content=message.content,
             media=message.media,
             created_at=message.created_at,
         )
-        state.get_recent_messages()
-        state.get_session()
-        state.get_memory()
+        await state.get_recent_messages()
+        await state.get_session()
+        await state.get_memory()
         return state
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
-    def get_recent_messages(self, n: int = 5) -> None:
+    async def get_recent_messages(self, n: int = 5) -> None:
         recent = self._load_json(
             PROJECT_ROOT / ".shion" / "recent.json"
         )
@@ -61,12 +65,12 @@ class State:
             ]
         }
 
-    def get_session(self) -> None:
+    async def get_session(self) -> None:
         self.session = self._load_json(
             PROJECT_ROOT / ".shion" / "session" / "sessions.json"
         )
 
-    def get_memory(self) -> None:
+    async def get_memory(self) -> None:
         self.memory = {}
 
     def _load_json(self, path: Path) -> dict[str, Any]:

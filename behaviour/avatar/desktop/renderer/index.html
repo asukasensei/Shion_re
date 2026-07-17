@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- PixiJS 7 compiles WebGL shader programs at runtime. The page is served
+       only by Shion's loopback gateway, so allow that operation while keeping
+       every script source restricted to this server. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' ws: wss:;">
+  <title>Shion Desktop</title>
+  <link rel="stylesheet" href="/renderer/styles.css">
+</head>
+<body>
+  <main id="avatar-view" class="avatar-view hidden">
+    <canvas id="live2d-canvas"></canvas>
+    <div id="speech-bubble" class="speech-bubble hidden"></div>
+    <div id="avatar-status" class="avatar-status">正在加载模型…</div>
+  </main>
+
+  <main id="control-view" class="control-view hidden">
+    <section class="control-card">
+      <header>
+        <div>
+          <strong>汐音</strong>
+          <span id="connection-state">连接中</span>
+        </div>
+        <button id="close-controls" type="button" aria-label="关闭">×</button>
+      </header>
+      <div id="messages" class="messages" aria-live="polite"></div>
+      <div id="record-state" class="record-state hidden"></div>
+      <form id="message-form" autocomplete="off">
+        <textarea id="message-input" rows="2" maxlength="4000" placeholder="想和汐音说点什么…"></textarea>
+        <div class="actions">
+          <button id="record-button" class="secondary" type="button">按住说话</button>
+          <button type="submit">发送</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/vendor/live2dcubismcore.min.js"></script>
+  <script src="/renderer/renderer.bundle.js"></script>
+</body>
+</html>

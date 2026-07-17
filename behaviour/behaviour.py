@@ -2,7 +2,9 @@ import asyncio
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+from behaviour.behaviour_bus import BehaviourBus
 
 
 DEFAULT_AVATAR = "normal"
@@ -13,13 +15,37 @@ class BehaviourData:
     avatar: dict[str, Any] | str = DEFAULT_AVATAR
     voice: str = ""
     text: str = ""
+    motion: str | None = None
+    priority: int = 0
+    trace_id: str = ""
+    session_id: str = "desktop-local"
+
 
 
 class Behaviour:
+    def __init__(
+        self,
+        behaviour_bus: BehaviourBus | None = None,
+        payload_builder: Callable[[BehaviourData], dict[str, Any]] | None = None,
+        *,
+        play_local_voice: bool = True,
+    ) -> None:
+        self.behaviour_bus = behaviour_bus
+        self.payload_builder = payload_builder or self._default_payload
+        self.play_local_voice = play_local_voice
+
     async def play_behaviour(self, behaviour_data: BehaviourData) -> None:
         print(behaviour_data.text, flush=True)
 
-        if not behaviour_data.voice:
+        if self.behaviour_bus is not None:
+            self.behaviour_bus.publish_event(
+                "behaviour.apply",
+                self.payload_builder(behaviour_data),
+                trace_id=behaviour_data.trace_id,
+                session_id=behaviour_data.session_id,
+            )
+
+        if not behaviour_data.voice or not self.play_local_voice:
             return
 
         voice_path = Path(behaviour_data.voice).expanduser().resolve()
@@ -28,6 +54,15 @@ class Behaviour:
 
         await asyncio.to_thread(self._play_voice, voice_path)
 
+    @staticmethod
+    def _default_payload(data: BehaviourData) -> dict[str, Any]:
+        return {
+            "avatar": data.avatar,
+            "voice": data.voice,
+            "text": data.text,
+            "motion": data.motion,
+            "priority": data.priority,
+        }
     @staticmethod
     def _play_voice(voice_path: Path) -> None:
         escaped_path = str(voice_path).replace("'", "''")

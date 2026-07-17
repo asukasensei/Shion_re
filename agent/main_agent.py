@@ -1,5 +1,6 @@
 import json
 import asyncio
+import logging
 from typing import Any, Awaitable
 import inspect
 
@@ -11,29 +12,43 @@ from prompting.compose_chat import Compose
 from agent.deal_response import DealResponse
 from behaviour.voice.tts_base import TTSBase
 from behaviour.behaviour import BehaviourData, Behaviour
+from route.route import BGERouteClassifier
 
 
 DEFAULTCHANNEL = "cli"
+MAIN_CHANNELS = {"cli", "desktop"}
+logger = logging.getLogger(__name__)
 
 
 class MainAgent:
     def __init__(
         self,
         output_format: str = "",
+        behaviour: Behaviour | None = None,
+        tts: TTSBase | None = None,
+        route: BGERouteClassifier | None = None,
     ) -> None:
         self.output_format = output_format
         self.chat_provider = LLMResponse(is_streaming=True, response_format=output_format)
         self.task_provider = LLMResponse(is_streaming=False, response_format="json_object")
-        self.behaviour = Behaviour()
-        self.tts = TTSBase()
+        self.behaviour = behaviour or Behaviour()
+        self.scene_dispatcher: Any | None = None
+        self.route: Any | None = None
+        self.tts = tts or TTSBase()
+        self.route = route or BGERouteClassifier()
 
 
     async def run(self, message: Message):
-        state = State.from_message(message)
+        state = await State.from_message(message)
         channel_id = state.channel_id or message.channel_id or DEFAULTCHANNEL
-        is_main_entry = channel_id == DEFAULTCHANNEL
+        is_main_entry = channel_id in MAIN_CHANNELS
         compose = Compose(state)
         chat_prompt = compose.compose_chat_prompt()
+        if state.from_who == "user":
+            scene_strategy = self._dispatch_scene_strategy(state)
+            if scene_strategy:
+                chat_prompt["response_strategy"] = scene_strategy
+
         expression_task_prompt = compose.compose_expression_task_prompt()
         # 关键：两个 prompt 同时传入两个 provider
         chat_response_task = asyncio.create_task(
@@ -59,19 +74,45 @@ class MainAgent:
             while buffer:
                 chunk = buffer.pop(0)
                 if is_main_entry:
-                    voice_path = await asyncio.to_thread(self.tts.get_voice, chunk)
+                    voice_task = asyncio.create_task(
+                        asyncio.to_thread(self.tts.get_voice, chunk)
+                    )
                     if expression_payload is None:
-                        raw_expression_response = await expression_response_task
-                        expression_response_retrieved = True
-                        expression_payload = self._parse_expression_payload(
-                            raw_expression_response
+                        try:
+                            raw_expression_response = await expression_response_task
+                            expression_response_retrieved = True
+                            expression_payload = self._parse_expression_payload(
+                                raw_expression_response
+                            )
+                        except Exception:
+                            expression_response_retrieved = True
+                            expression_payload = {"expression": "normal"}
+                            logger.exception(
+                                "Expression generation failed for trace %s",
+                                message.trace_id,
+                            )
+                    try:
+                        voice_path = await voice_task
+                    except Exception:
+                        voice_path = ""
+                        logger.exception(
+                            "TTS generation failed for trace %s",
+                            message.trace_id,
                         )
                     behaviour_data = BehaviourData(
                         text=chunk,
                         voice=voice_path,
                         avatar=expression_payload,
+                        trace_id=message.trace_id,
+                        session_id=message.session_id or message.trace_id,
                     )
-                    await self._emit_behaviour(behaviour_data)
+                    try:
+                        await self._emit_behaviour(behaviour_data)
+                    except Exception:
+                        logger.exception(
+                            "Behaviour delivery failed for trace %s",
+                            message.trace_id,
+                        )
 
                 yield MessagePost(
                     channel=channel_id,
@@ -185,3 +226,23 @@ class MainAgent:
     
     def _emit_behaviour(self, behaviour_data: BehaviourData) -> Awaitable[None]:
         return self.behaviour.play_behaviour(behaviour_data)
+
+
+    def _dispatch_scene_strategy(self, state: State) -> str | None:
+        try:
+            if self.route is None:
+                from route.route import Route
+
+                self.route = Route()
+            route_result = self.route.dispatch(state)
+            if not route_result:
+                return None
+
+            if self.scene_dispatcher is None:
+                from prompting.scene_prompt_dispatcher import ScenePromptDispatcher
+
+                self.scene_dispatcher = ScenePromptDispatcher()
+            scene_result = self.scene_dispatcher.dispatch(route_result)
+            return getattr(scene_result, "strategy_prompt", None)
+        except (ImportError, AttributeError, FileNotFoundError):
+            return None

@@ -25,6 +25,28 @@
         "api_key":"",
         "character":""
      },
+    "live2d": {
+        "enabled": true,
+        "auto_open": true,
+        "launch_electron": true,
+        "host": "127.0.0.1",
+        "port": 8765,
+        "model_dir": "live2d_model/晴雨",
+        "model_file": "晴雨.model3.json",
+        "token": "",
+        "max_audio_bytes": 20971520,
+        "touch_cooldown_ms": 1200,
+        "persistent_parameters": {
+            "Param221": 1.0
+        }
+    },
+    "asr": {
+        "enabled": false,
+        "model": "whisper-1",
+        "url": "https://api.openai.com/v1",
+        "api_key": "",
+        "language": "zh"
+    },
     "conversation_store": {
         "backend": "jsonl",
         "jsonl_path": "memory/recent/session.jsonl",

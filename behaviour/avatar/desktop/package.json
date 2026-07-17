@@ -1,0 +1,24 @@
+{
+  "name": "shion-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Transparent Electron Live2D desktop channel for Shion",
+  "main": "main.js",
+  "scripts": {
+    "build:renderer": "esbuild renderer/renderer.js --bundle --platform=browser --format=iife --target=chrome120 --outfile=renderer/renderer.bundle.js",
+    "prestart": "npm run build:renderer",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@pixi/unsafe-eval": "7.4.3",
+    "pixi-live2d-display": "0.5.0-beta",
+    "pixi.js": "7.4.3"
+  },
+  "devDependencies": {
+    "electron": "43.1.0",
+    "esbuild": "^0.25.6"
+  },
+  "overrides": {
+    "gh-pages": "6.3.0"
+  }
+}

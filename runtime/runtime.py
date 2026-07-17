@@ -9,6 +9,8 @@ from message.message_post_bus import MessagePostBus
 from runtime.dispatcher import Dispatcher
 from background_worker.backworker import BackgroundWorker
 from memory.diary.diary import DiaryService
+from behaviour.avatar.live2d_web import Live2DWebServer
+from behaviour.behaviour import Behaviour
 
 import asyncio
 
@@ -22,8 +24,20 @@ class Runtime:
         self.channel_bus = ChannelBus()
         self.cli_channel = CLIChannel()
         self.channel_bus.register_channel(self.cli_channel)
-        self.main_agent = MainAgent()
-        self.diary_service = DiaryService()
+        self.live2d_server = Live2DWebServer.from_config(
+            message_bus=self.message_bus
+        )
+        if self.live2d_server.desktop_channel is not None:
+            self.channel_bus.register_channel(
+                self.live2d_server.desktop_channel
+            )
+        self.behaviour = Behaviour(
+            behaviour_bus=self.live2d_server.frontend_bus,
+            payload_builder=self.live2d_server.build_behaviour_payload,
+            play_local_voice=False,
+        )
+        self.main_agent = MainAgent(behaviour=self.behaviour)
+        self.diary_service: DiaryService
         self.dispatcher = Dispatcher(
             message_bus=self.message_bus,
             message_post_bus=self.message_post_bus,
@@ -50,8 +64,12 @@ class Runtime:
         )
 
     def run(self) -> None:
+        live2d_url = self.live2d_server.start()
+        if live2d_url:
+            print(f"Live2D avatar page: {live2d_url}")
         print("正在加载程序并整理记忆，请稍候……")
         try:
+            self.diary_service = DiaryService()
             asyncio.run(self.diary_service.process_if_new_day())
         except Exception as e:
             print(f"处理日记时发生错误，原始记录已保留: {e}")
@@ -85,6 +103,7 @@ class Runtime:
             dispatcher_thread.join(timeout=1)
             output_thread.join(timeout=1)
             background_thread.join()
+            self.live2d_server.stop()
 
     def _run_output_loop(self) -> None:
         while not self.stop_event.is_set():
@@ -92,6 +111,6 @@ class Runtime:
             if post is None:
                 continue
             try:
-                self.channel_bus.dispatch_message(post.channel, post.content)
+                self.channel_bus.dispatch_post(post)
             finally:
                 self.message_post_bus.task_done()

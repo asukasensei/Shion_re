@@ -51,6 +51,7 @@ class Compose:
             "memory": "",
             "recent_messages": "",
             "session": "",
+            "response_strategy": "",
             "media": "",
             "user": "",          
         }
@@ -60,6 +61,8 @@ class Compose:
         prompt["memory"] = self.state.memory if self.state.memory else ""
         prompt["recent_messages"] = self.state.recent_messages if self.state.recent_messages else ""
         prompt["session"] = self.state.session if self.state.session else ""
+        response_strategy = getattr(self.state, "response_strategy", "")
+        prompt["response_strategy"] = response_strategy if response_strategy else ""
         prompt["media"] = self.state.media if self.state.media else ""
         prompt["user"] = self.state.content if self.state.content else ""
         return prompt

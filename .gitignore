@@ -21,6 +21,9 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
+.tox/
+.nox/
 .coverage
 .coverage.*
 htmlcov/
@@ -29,6 +32,12 @@ coverage.xml
 # Build and packaging output
 build/
 dist/
+node_modules/
+behaviour/avatar/desktop/out/
+behaviour/avatar/desktop/release/
+behaviour/avatar/desktop/renderer/renderer.bundle.js
+behaviour/avatar/desktop/vendor/live2dcubismcore.min.js
+behaviour/avatar/desktop/vendor/CubismSdkForWeb-*/
 *.egg-info/
 
 # Runtime state and generated media
@@ -47,9 +56,12 @@ dist/
 Thumbs.db
 desktop.ini
 
-# Live2D models and related files
-/live2d_model/mao_pro_zh/
-/live2d_model/*.zip
+# Local or licensed Live2D model assets
+/live2d_model/*
+!/live2d_model/readme.md
+
+# Local scratch scripts
+/test/hash.py
 
 # Large model files
 /route/bge_router_v3/

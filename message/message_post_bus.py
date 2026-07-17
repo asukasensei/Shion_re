@@ -6,6 +6,12 @@ from queue import Empty, Queue
 class MessagePost:
     channel: str
     content: str
+    trace_id: str = ""
+    session_id: str = ""
+    user_id: str = ""
+    message_id: str = ""
+    event_type: str = "agent.delta"
+    is_final: bool = False
 
 
 class MessagePostBus:

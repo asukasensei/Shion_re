@@ -1,5 +1,6 @@
 import asyncio
 from threading import Event
+from dataclasses import replace
 
 from agent.main_agent import MainAgent
 from contracts.message import Message
@@ -31,7 +32,15 @@ class Dispatcher:
             asyncio.run(self._dispatch_message(message))
         except Exception as exc:
             self.message_post_bus.push_message(
-                MessagePost(channel=message.channel_id, content=f"[agent error] {exc}")
+                MessagePost(
+                    channel=message.channel_id,
+                    content=f"[agent error] {exc}",
+                    trace_id=message.trace_id,
+                    session_id=message.session_id or message.trace_id,
+                    user_id=message.user_id,
+                    event_type="error",
+                    is_final=True,
+                )
             )
         finally:
             self.message_bus.task_done()
@@ -46,12 +55,28 @@ class Dispatcher:
                 self._push_post(message, post)
                 response_parts.append(post.content)
         finally:
+            self.message_post_bus.push_message(
+                MessagePost(
+                    channel=message.channel_id,
+                    content="",
+                    trace_id=message.trace_id,
+                    session_id=message.session_id or message.trace_id,
+                    user_id=message.user_id,
+                    event_type="agent.done",
+                    is_final=True,
+                )
+            )
             event = Event(
                 event_type="session_write",
                 event_id=f"session-write:{message.message_id}",
                 priority="immediate",
                 content={
                     "time": message.created_at,
+                    "user_id": message.user_id,
+                    "session_id": message.session_id or message.trace_id,
+                    "channel_id": message.channel_id,
+                    "message_id": message.message_id,
+                    "trace_id": message.trace_id,
                     "user": message.content,
                     "agent_response": "".join(response_parts),
                 },
@@ -64,13 +89,34 @@ class Dispatcher:
 
     def _push_post(self, source: Message, post: MessagePost | str | dict) -> None:
         if isinstance(post, MessagePost):
-            self.message_post_bus.push_message(post)
+            self.message_post_bus.push_message(
+                replace(
+                    post,
+                    trace_id=post.trace_id or source.trace_id,
+                    session_id=(
+                        post.session_id or source.session_id or source.trace_id
+                    ),
+                    user_id=post.user_id or source.user_id,
+                )
+            )
             return
         if isinstance(post, str):
             self.message_post_bus.push_message(
-                MessagePost(channel=source.channel_id, content=post)
+                MessagePost(
+                    channel=source.channel_id,
+                    content=post,
+                    trace_id=source.trace_id,
+                    session_id=source.session_id or source.trace_id,
+                    user_id=source.user_id,
+                )
             )
             return
         self.message_post_bus.push_message(
-            MessagePost(channel=source.channel_id, content=str(post))
+            MessagePost(
+                channel=source.channel_id,
+                content=str(post),
+                trace_id=source.trace_id,
+                session_id=source.session_id or source.trace_id,
+                user_id=source.user_id,
+            )
         )
